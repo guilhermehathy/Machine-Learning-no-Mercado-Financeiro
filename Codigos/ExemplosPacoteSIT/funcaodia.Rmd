@@ -1,0 +1,113 @@
+---
+title: "Srinivasa Ramanujan"
+author: "Guilherme Hathy"
+date: "30 de janeiro de 2017"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+#Carregando Bibiotecas
+library(neuralnet)
+library(SIT)
+load.packages('quantmod')
+
+```
+
+
+```{r}
+separadia <- function(inicio, fim, tickers, dias){
+
+data <- new.env()
+getSymbols(tickers, src = 'yahoo', from = inicio, to = fim, env = data, set.symbolnames = T, auto.assign = T)
+for(i in data$symbolnames) data[[i]] = adjustOHLC(data[[i]], use.Adjusted=T)
+bt.prep(data, align='keep.all', fill.gaps = T)
+
+
+
+prices <- as.numeric(data$prices)
+
+
+diasgenerico = dias -1
+
+t0<-as.numeric(prices)            
+t0<-t0[-((length(t0)-diasgenerico):length(t0))]
+
+i = 1
+coluna = 2
+while(i < dias){
+  diasgenerico = diasgenerico - 1
+  
+  t2<-as.numeric(prices) [-seq(1,i,1)]  #Três dias antes
+  t2<-t2[-((length(t2)-diasgenerico):length(t2))]
+  
+  t0 <- cbind(t0,t2)
+  
+  coluna = coluna + 1
+  i = i + 1
+}
+
+colnames(t0) <- sprintf("x%d", 1:length(colnames(t0)))
+return(t0)
+}
+
+```
+
+```{r}
+
+RMSE <- function(x, y){
+  
+  return( sqrt(mean((x-y)^2))    )
+  
+}
+```
+
+#Testando estrategias com dias diferentes
+```{r}
+
+
+
+dias = 2
+neuronios = 2
+resultado <- data.frame(Neuronios = numeric(),Dias = numeric(), Resultado = numeric())
+
+while(dias <= 10){
+  while(neuronios <= 4 ){
+    #Baixando os dados de 2016
+    dados2016 <- separadia(inicio = '2016-01-01', fim = '2016-12-31', tickers = 'PETR4.SA',dias = dias)
+    
+    #Criando algoritimo
+    x <- as.formula(paste(sprintf("dados2016[, %d] ~ ", dias),
+paste(sprintf("dados2016[, %d]", 1:(dias-1)), collapse = "+")))
+    
+    maxit<-as.integer(1000000)
+    
+    algoritmo <- neuralnet(x,data=dados2016, hidden=neuronios,
+                           threshold =1,stepmax= maxit)
+    
+    #Testando com dados de 2017
+    dados2017 <- separadia(inicio = '2017-01-01', fim = '2017-12-31', tickers = 'PETR4.SA',dias = dias)
+    
+    teste <- compute(algoritmo, dados2017[,1:(dias - 1)])
+    
+    #Calculando RMSE
+    resultadoRMSE <-  RMSE(x = teste$net.result, y = dados2017[,dias])
+    
+    generico <- c(neuronios, dias, resultadoRMSE)
+    resultado[nrow(resultado) + 1 ,] <- generico
+   
+    
+    neuronios = neuronios + 1
+    
+    }
+  neuronios = 1
+  dias = dias + 1
+  
+}
+
+```
+
+```{r}
+
+
+head(resultado[order(resultado$Resultado),])
+```

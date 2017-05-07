@@ -1,0 +1,178 @@
+# Métodos
+
+
+##Mercado Forex (Foreign Exchange Market)
+
+
+O Forex é um mercado financeiro descentralizado destinado a transações de câmbio, sendo o maior mercado do mundo, movimentando aproximadamente 5 trilhões de dólares diariamente, Ele opera 24 horas por dia, entre 22h00 GTM de Domingo e 22h:00 GTM de Sexta-feira. 
+
+
+A operação no Forex envolve a compra de uma moeda e a simultânea venda de outra, ou seja,
+as moedas são negociadas em pares, por exemplo: dólar e iene (USD/JPY), real e
+dólar, etc. O investidor não compra dólares ou ienes, fisicamente, mas uma relação monetária de
+troca entre eles.
+
+Assim, quando alguém faz uma operação nesse mercado, não está comprando uma determinada
+divisa, mas um determinado PAR, uma taxa de câmbio entre duas moedas. Graças à flutuação
+nessas taxas, com a variação do valor relativo entre as moedas estrangeiras (ou entre a
+moeda nacional e as moedas estrangeiras), podem ser estruturadas diferentes estratégias de
+investimento, que podem resultar em lucros ou prejuízos.
+
+##Systematic Investor Toolbox (SIT)
+
+```{r}
+#Carregando Bibioteca
+
+library(SIT)
+load.packages('quantmod')
+
+```
+
+
+```{r}
+#Importanto ultimos preços.
+
+	
+tickers = 'PETR4.SA'
+	
+precos = new.env()
+getSymbols(tickers, src = 'yahoo', from = '2000-01-01', env = precos, auto.assign = T)	
+
+#Ajustando os valores
+
+for(i in ls(precos)) precos[[i]] = adjustOHLC(precos[[i]], use.Adjusted=T)  
+bt.prep(precos, align='remove.na') 
+
+#Visualiando os ultimos 6 dias
+
+last(precos$PETR4.SA,6)
+
+```
+
+```{r}
+#Plotando o grafico dos ultimos 100 dias
+
+plota(last(precos$PETR4.SA,100), type = 'candle', plotX = F, main = "Petrobras")
+
+```
+
+```{r}
+prices = precos$prices  
+models = list()
+
+# media movel 200 periodos vs media movel de 72 periodos
+#72 periodos
+precos$weight[] = NA
+precos$weight[] = iif(prices > SMA(prices, 72), 1, 0)
+models$ma72 = bt.run.share(precos, clean.signal=T)
+
+
+#200 periodos
+precos$weight[] = NA
+precos$weight[] = iif(prices > SMA(prices, 200), 1, 0)
+models$ma200 = bt.run.share(precos, clean.signal=T)
+```
+
+```{r}
+strategy.performance.snapshoot(models, T)
+
+plotbt.custom.report.part2(models$ma200)
+
+plotbt.custom.report.part2(models$ma72)
+
+
+```
+
+```{r}
+#testando cruzamento de medias moveis
+
+sma.fast = SMA(prices, 8)
+sma.slow = SMA(prices, 20)
+buy.signal = iif(cross.up(sma.fast, sma.slow), 1, NA)
+precos$weight[] = NA
+precos$weight[] = iif(cross.up(sma.fast, sma.slow), 1, iif(cross.dn(sma.fast, sma.slow), 0, NA))
+models$ma.cross = bt.run.share(precos, clean.signal=T, trade.summary = TRUE)
+
+strategy.performance.snapshoot(models, T)
+
+```
+
+```{r}
+#Criando o Grafico das estrategias
+dates = '2016::2017'
+extra.plot.fn <- function() {
+plota.lines(sma.fast, col='red')
+plota.lines(sma.slow, col='blue')
+}
+
+layout(1:3)
+
+bt.stop.strategy.plot(precos, models$ma.cross, dates = dates, layout=T, main = 'Cruzamento de medias', extra.plot.fn = extra.plot.fn, plotX = F)
+
+bt.stop.strategy.plot(precos, models$ma72, dates = dates, layout=T, main = 'Media de 72', extra.plot.fn = plota.lines(SMA(prices, 72), col='red'), plotX = F)
+
+bt.stop.strategy.plot(precos, models$ma200, dates = dates, layout=T, main = 'Media de 200', extra.plot.fn = plota.lines(SMA(prices, 200), col='red'), plotX = F)
+```
+
+### Adicionando Stop
+
+```{r}
+
+
+#Adicionando Stop na media de 72 peridos
+
+buy.signal  = iif(prices > SMA(prices, 72), 1, 0)
+
+
+#Criando a função 
+
+
+fixed.stop <- function(weight, price, tstart, tend, pstop) {
+index = tstart : tend
+if(weight > 0)
+price[ index ] < (1 - pstop) * price[ tstart ]
+else
+price[ index ] > (1 + pstop) * price[ tstart ]
+}
+
+#Testando a estrategia
+
+precos$weight[] = NA
+precos$weight[] = custom.stop.fn(coredata(buy.signal), coredata(prices), fixed.stop,
+pstop = 0.5/100)
+models$ma.72.fixed.stop = bt.run.share(precos, clean.signal=T, trade.summary = TRUE)
+
+strategy.performance.snapshoot(models, T)
+
+```
+
+### Criando estrategia customizada
+
+Aqui entra a parte mais importante da pesquisa, podemos criar funções utilizando ferramentas de machine learning
+
+
+```{r}
+media <- function(x, periodo){
+  runMean(x, periodo, cumulative = FALSE)
+}
+
+#72 periodos customizada
+precos$weight[] = NA
+precos$weight[] = iif(prices > media(prices, 72), 1, 0)
+models$customizada = bt.run.share(precos, clean.signal=T)
+
+#72 periodos
+precos$weight[] = NA
+precos$weight[] = iif(prices > SMA(prices, 72), 1, 0)
+models$ma72 = bt.run.share(precos, clean.signal=T)
+
+
+layout(1:2)
+
+bt.stop.strategy.plot(precos, models$ma72, dates = dates, layout=T, main = 'Media de 72', extra.plot.fn = plota.lines(SMA(prices, 72), col='red'), plotX = F)
+
+bt.stop.strategy.plot(precos, models$customizada, dates = dates, layout=T, main = 'Media de 72 criada por nos', extra.plot.fn = plota.lines(SMA(prices, 72), col='red'), plotX = F)
+
+```
+
+Como pode ser visto, a nossa função criou o mesmo resultado que a função do pacote, logo poderemos criar o nosso pacote com as funções de machine learning, e só testar usando o `SIT`

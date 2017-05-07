@@ -1,0 +1,101 @@
+---
+title: "v2"
+author: "Guilherme Hathy"
+date: "27 de janeiro de 2017"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+#Carregando Bibiotecas
+
+library(neuralnet)
+library(SIT)
+load.packages('quantmod')
+
+```
+
+```{r}
+#Importanto ultimos preços.
+#Início do período de interesse
+inicio = as.Date("2016-01-01") 
+ 
+#Obtêm os dados da PETR4
+getSymbols("PETR4.SA", src="yahoo",from=inicio)
+
+```
+
+```{r}
+#Ajustando dados para criar o algoritmo
+#Dados para o neuralnet
+
+##Dados 2016
+dados2016 <- PETR4.SA[c(1:260)]
+
+Entrada<-as.numeric(Cl(dados2016))
+Entrada <- Entrada[-length(Entrada)]
+Saida <- as.numeric(Cl(dados2016))[-1]
+dados2016 <- cbind(Entrada, Saida)
+colnames(dados2016) <- c("Entrada", "Saida")
+
+##Dados 2017
+
+dados2017 <- PETR4.SA[c(261:280)]
+
+Entrada<-as.numeric(Cl(dados2017))
+Entrada <- Entrada[-length(Entrada)]
+Saida <- as.numeric(Cl(dados2017))[-1]
+dados2017 <- cbind(Entrada, Saida)
+colnames(dados2017) <- c("Entrada", "Saida")
+```
+
+```{r}
+#Criando as funções para realizar os testes
+
+Algoritimodeteste <- function(bd,iinicial){
+  maxit<-as.integer(10000000)
+  funcao <- neuralnet(Saida~Entrada, data = bd, hidden=iinicial,
+                      threshold =1,stepmax= maxit)
+  return(funcao)
+}
+
+
+RMSE <- function(x){
+  
+  return( sqrt(mean((x-resultados[,2])^2))    )
+  
+}
+```
+
+```{r}
+#Criando algoritmo
+resultados <- dados2017
+colnames(resultados) <- c("Input","Valor Esperado")
+
+iinicial = 5
+coluna = 3
+while(iinicial <= 100){
+  #Criando o algoritmo
+  algoritmo <- Algoritimodeteste(dados2016, iinicial)
+
+  #Testando o algoritmo
+  
+  teste <- compute(algoritmo, dados2017[,1])
+  
+  #Criando vetor com os resultados
+  
+  resultados <- cbind(resultados,teste$net.result)
+  colnames(resultados)[coluna] <- iinicial
+  iinicial = iinicial + 2
+  coluna = coluna + 1
+}
+```
+
+```{r}
+#Calculando RMSE
+
+result.RMSE <-  apply(resultados,2, RMSE)
+
+head(result.RMSE[order(result.RMSE)])
+
+
+```

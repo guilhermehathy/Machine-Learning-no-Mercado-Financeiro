@@ -1,0 +1,13 @@
+--- 
+title: "Machine Learning Aplicado ao Mercado Financeiro"
+author: "Guilherme Hathy"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: bookdown::gitbook
+documentclass: book
+bibliography: [referencias.bib]
+biblio-style: apalike
+link-citations: yes
+github-repo: rstudio/bookdown-demo
+
+---

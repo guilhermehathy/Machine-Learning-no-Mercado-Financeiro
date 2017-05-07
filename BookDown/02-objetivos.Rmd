@@ -1,0 +1,12 @@
+#Objetivo
+
+<br />
+<br />
+
+Considerando que a alta porcentagem de fracasso dos investidores no mercado financeiro são devidos à fatores técnicos e psicológicos como demonstra @barber2014day, o objetivo deste projeto é duplo: otimizar as estratégias financeiras através de técnicas modernas de Machine Learning e eliminar o viés psicológico (fator humano) que influencie uma negociação.
+Com o crescente avanço das técnicas de Machine Learning vamos construir algoritmos capazes de aprender com as constantes mudanças da lógica do mercado financeiro, não sofrendo com sua volatilidade, pois anteciparão tais tendências. 
+
+Além disso, como investir no mercado de capitais é contra intuitivo, pois o fator humano acaba por se sobressair a lógica do mercado (@kahneman1979prospect), eliminaremos o aspecto humano, automatizando as operações e aproveitando todas as oportunidades do mercado (em especial aqueles abertos 24h por dia), coisa que para um operador humano seria impossível.
+
+<br />
+<br />

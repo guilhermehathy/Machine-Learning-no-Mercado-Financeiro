@@ -1,0 +1,214 @@
+---
+title: "Srinivasa Ramanujan"
+author: "Guilherme Hathy"
+date: "1 de fevereiro de 2017"
+output: pdf_document
+---
+```{r, include=FALSE}
+#Carregando Bibiotecas
+
+library(neuralnet)
+library(SIT)
+load.packages('quantmod')
+
+```
+
+
+```{r}
+#Importanto ultimos preços.
+
+	
+tickers = 'PETR4.SA'
+	
+precos = new.env()
+getSymbols(tickers, src = 'yahoo', from = '2016-01-01', env = precos, auto.assign = T)	
+
+
+```
+
+```{r}
+#Ajustando dados para criar o algoritmo
+#Dados para o neuralnet
+
+##Dados 2016
+
+
+dados2016 <- precos$PETR4.SA[c(1:261)]
+
+Abertura <- dados2016$PETR4.SA.Open
+Abertura <- as.numeric(Abertura)
+Abertura <- Abertura[-length(Abertura)]
+
+Maxima <- dados2016$PETR4.SA.High
+Maxima <- as.numeric(Maxima)
+Maxima <- Maxima[-length(Maxima)]
+
+Minima <- dados2016$PETR4.SA.Low
+Minima <- as.numeric(Minima)
+Minima <- Minima[-length(Minima)]
+
+Close <-as.numeric(Cl(dados2016))
+Close <- Close[-length(Close)]
+
+
+
+Saida <- as.numeric(Cl(dados2016))[-1]
+
+
+dados2016 <- cbind(Abertura,Maxima, Minima, Close, Saida)
+colnames(dados2016) <- c("Abertura", "Maxima", "Minima", "Close", "Saida")
+
+##Dados 2017
+
+dados2017 <- precos$PETR4.SA[c(262:283)]
+
+
+Abertura <- dados2017$PETR4.SA.Open
+Abertura <- as.numeric(Abertura)
+Abertura <- Abertura[-length(Abertura)]
+
+Maxima <- dados2017$PETR4.SA.High
+Maxima <- as.numeric(Maxima)
+Maxima <- Maxima[-length(Maxima)]
+
+Minima <- dados2017$PETR4.SA.Low
+Minima <- as.numeric(Minima)
+Minima <- Minima[-length(Minima)]
+
+Close <-as.numeric(Cl(dados2017))
+Close <- Close[-length(Close)]
+
+
+
+Saida <- as.numeric(Cl(dados2017))[-1]
+
+
+dados2017 <- cbind(Abertura,Maxima, Minima, Close, Saida)
+colnames(dados2016) <- c("Abertura", "Maxima", "Minima", "Close", "Saida")
+```
+
+```{r}
+
+RMSE <- function(x){
+  
+  return( sqrt(mean((x-dados2017[,5])^2))    )
+  
+}
+```
+
+```{r}
+#Criando algoritmo usando apenas o preço de fechamento
+resultadoclose <- dados2017[,5]
+
+iinicial = 5
+coluna = 2
+while(iinicial <= 50){
+  #Criando o algoritmo
+  maxit<-as.integer(1000000)
+  
+  algoritmo <- neuralnet(dados2016[,5]~dados2016[,4],
+data=dados2016, hidden=iinicial ,threshold =0.1,stepmax= maxit)
+
+  #Testando o algoritmo
+  
+  teste <- compute(algoritmo, dados2017[,4])
+  
+  #Criando vetor com os resultados
+  
+  resultadoclose <- cbind(resultadoclose,teste$net.result)
+  colnames(resultadoclose)[coluna] <- iinicial
+  iinicial = iinicial + 2
+  coluna = coluna + 1
+}
+```
+
+```{r}
+#Criando algoritmo
+resultadosallprices <- dados2017[,5]
+
+iinicial = 5
+coluna = 2
+while(iinicial <= 50){
+  #Criando o algoritmo
+  maxit<-as.integer(100000000)
+  
+  algoritmo <- neuralnet(dados2016[,5]~dados2016[,1]+
++dados2016[,2]+dados2016[,3]+dados2016[,4],
+data=dados2016, hidden=iinicial ,threshold =1,stepmax= maxit)
+
+  #Testando o algoritmo
+  
+  teste <- compute(algoritmo, dados2017[,1:4])
+  
+  #Criando vetor com os resultados
+  
+  resultadosallprices <- cbind(resultadosallprices,teste$net.result)
+  colnames(resultadosallprices)[coluna] <- iinicial
+  iinicial = iinicial + 10
+  coluna = coluna + 1
+}
+```
+
+```{r}
+#Calculando RMSE
+
+result.RMSE.allprices <-  apply(resultadosallprices,2, RMSE)
+result.RMSE.close <-  apply(resultadoclose,2, RMSE)
+head(result.RMSE.allprices[order(result.RMSE.allprices)])
+head(result.RMSE.close[order(result.RMSE.close)])
+
+```
+
+```{r}
+tickers = 'PETR4.SA'
+	
+precosteste = new.env()
+getSymbols(tickers, src = 'yahoo', from = '2017-01-01', env = precosteste, auto.assign = T)	
+
+bt.prep(precosteste, align='remove.na') 
+
+#criando os 4 mehores algoritimos e testando, os valores do hidden serão:
+melhoresclose <- colnames(resultadoclose)[c(2:3)]
+melhoresall <- colnames(resultadosallprices)[c(2:3)]
+
+
+models = list()
+
+for(i in melhoresclose){
+  maxit<-as.integer(1000000)
+  algoritmo <- neuralnet(dados2016[,5]~dados2016[,4],
+  data=dados2016, hidden=i ,threshold =0.1,stepmax= maxit)
+  teste <- compute(algoritmo, precosteste$prices)
+  
+  precosteste$weight[] = NA
+  precosteste$weight[] = iif(precosteste$prices < teste$net.result, 1, 0)
+  generico = bt.run.share(precosteste, clean.signal=T)
+  
+  models$teste <- generico
+  names(models)[length(models)] <- paste("1x",i,"x1")
+
+}
+
+for(i in melhoresall){
+  maxit<-as.integer(1000000)
+  algoritmo <- neuralnet(dados2016[,5]~dados2016[,1]+
++dados2016[,2]+dados2016[,3]+dados2016[,4],
+data=dados2016, hidden=i ,threshold =1,stepmax= maxit)
+   teste <- compute(algoritmo, precosteste$PETR4.SA[,c(1:4)])
+   
+  precosteste$weight[] = NA
+  precosteste$weight[] = iif(precosteste$PETR4.SA[,5] < teste$net.result, 1, 0)
+  generico = bt.run.share(precosteste, clean.signal=T)
+  
+  models$teste <- generico
+  names(models)[length(models)] <- paste("5x",i,"x1- MD")
+
+}
+
+```
+
+#Verificando o resultado das estrategias
+
+```{r}
+strategy.performance.snapshoot(models, T)
+```

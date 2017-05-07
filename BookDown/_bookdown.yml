@@ -1,0 +1,16 @@
+book_filename: "Machine_Learning"
+language:
+  label:
+    fig: 'Figura '
+    tab: 'Tabela '
+    eq: 'Equação '
+    thm: 'Teorema '
+    lem: 'Lemma '
+    def: 'Definition '
+    cor: 'Corollary '
+    prp: 'Proposition '
+    ex: 'Exemplo '
+    proof: 'Proof. '
+    remark: 'Remark. '
+  ui:
+    chapter_name: "Capítulo "
